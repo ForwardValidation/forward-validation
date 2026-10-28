@@ -16,7 +16,8 @@ class BASEModel():
     - get_variance
     - init_params
     - init_bounds
-    - constraints
+    - constraints (callable used by the MLE, SLSQP)
+    - c (LinearConstraint used by the FV, differential evolution)
 
     The class supports:
     - Maximum Likelihood Estimation (MLE)
@@ -76,6 +77,10 @@ class BASEModel():
         """
         Estimate model parameters using Forward Validation (FV).
 
+        The conditional coverage statistic LRcc is minimized with
+        scipy.optimize.differential_evolution, subject to the bounds
+        `init_bounds()` and the constraints `c()`.
+
         Parameters
         ----------
         returns : np.ndarray
@@ -107,23 +112,17 @@ class BASEModel():
 
             return b_loglik + m_loglik
 
-        opt = scp.optimize.basinhopping(LRcc,
-                                        x0=self.init_params(),
-                                        niter=5,
-                                        T=0.01,
-                                        stepsize=0.005,
-                                        niter_success=5,
-                                        disp=show,
-                                        minimizer_kwargs={
-                                            'method': 'SLSQP',
-                                            'bounds': self.init_bounds(),
-                                            'options': {'eps': 1e-3},
-                                            'constraints': {
-                                                'type': 'ineq', 
-                                                'fun': self.constraints
-                                                }
-                                            }
-                                        )
+        opt = scp.optimize.differential_evolution(
+            LRcc,
+            popsize=10,
+            bounds=self.init_bounds(),
+            constraints=self.c(),
+            maxiter=200,
+            tol=1e-6,
+            mutation = 0.8,
+            recombination = 0.7, 
+            polish=False
+        )
         
         self.fv_params = opt.x
         

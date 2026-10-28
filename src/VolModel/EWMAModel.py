@@ -43,7 +43,7 @@ class EWMAModel(BASEModel):
                      + alpha * returns[t - 1] ** 2)
             variance.append(var_t)
 
-        return np.array(variance)
+        return np.maximum(variance, 1e-8)
     
     def init_params(self):
         """
@@ -111,6 +111,20 @@ class EWMAModel(BASEModel):
         eps = 1e-6
 
         return 1 - alpha - eps
+    
+    
+    def c(self):
+        """
+        Define the constraints used by Forward Validation.
+        The EWMA has no constraint other than its bounds.
+
+        Returns
+        -------
+        tuple
+            Empty tuple (no constraint).
+        """
+        return ()
+    
     
     def config_name(self):
         """

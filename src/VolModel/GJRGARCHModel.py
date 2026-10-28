@@ -2,6 +2,7 @@ import numpy as np
 from VolModel.BASEModel import BASEModel
 from Distribution.NormalDistribution import NormalDistribution
 from Distribution.StudentsDistribution import StudentsDistribution
+from scipy.optimize import LinearConstraint
 
 class GJRGARCHModel(BASEModel):
     """
@@ -53,7 +54,7 @@ class GJRGARCHModel(BASEModel):
     
             variance.append(var_t)
     
-        return np.array(variance)
+        return np.maximum(variance, 1e-8)
     
     def init_params(self):
         """
@@ -96,7 +97,8 @@ class GJRGARCHModel(BASEModel):
     def constraints(self, params):
         """
         Define inequality constraints for the optimization problem.
-        This constraint enforces the EWMA stability condition.
+        This constraint enforces the GJR-GARCH stationarity condition
+        alpha + 0.5 * gamma + beta < 1.
         This method is designed to be used with optimization routines from
         scipy.optimize, which require constraints
         to be provided as callable functions.
@@ -114,10 +116,31 @@ class GJRGARCHModel(BASEModel):
         """
         # outputs constraints for the optimization algorithms
         alpha = params[1]
-        beta = params[2]
+        gamma = params[2]
+        beta = params[3]
         eps = 1e-6
 
-        return 1 - alpha - beta - eps
+        return 1 - alpha - 0.5 * gamma - beta - eps
+
+    
+    def c(self):
+        """
+        Define the stationarity constraint used by Forward Validation.
+        This method is designed to be used with
+        scipy.optimize.differential_evolution, which requires constraints
+        to be provided as LinearConstraint objects.
+
+        Returns
+        -------
+        scipy.optimize.LinearConstraint
+            Constraint alpha + 0.5 * gamma + beta <= 1 - eps.
+        """
+        eps = 1e-6
+        if isinstance(self.distribution, NormalDistribution):
+            return LinearConstraint(A=[0, 1, 0.5, 1], lb=-np.inf, ub=1 - eps)
+        elif isinstance(self.distribution, StudentsDistribution):
+            return LinearConstraint(A=[0, 1, 0.5, 1, 0], lb=-np.inf, ub=1 - eps)
+    
     
     def config_name(self):
         """

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import random
 import matplotlib.pyplot as plt
 from VolModel.EWMAModel import EWMAModel
@@ -8,6 +9,10 @@ from Distribution.StudentsDistribution import StudentsDistribution
 import utils
 import scipy as scp
 import numpy as np
+
+# Folder where the figures are saved
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'results')
+os.makedirs(RESULTS_DIR, exist_ok=True)
 
 def simulate_returns(n, lmda, dist):
 
@@ -96,7 +101,7 @@ plt.ylabel('count', fontsize=15)
 plt.xlabel('LRcc', fontsize=15)
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)
-plt.savefig(r'D:\PhD\Var\Results\\LRcc_simul.eps', format='eps', dpi=300)
+plt.savefig(os.path.join(RESULTS_DIR, 'LRcc_simul.eps'), format='eps', dpi=300)
 plt.show()
     
 print(f"LRCC average (MLE) : {np.mean(results['MLE']):.2f}")
@@ -114,7 +119,7 @@ print(f"rejection of H0 (FV) at {1-r:.2f} : {fv_reject * 100:.2f} %")
 # =============================================================================
 
 # Path to input data and preparation
-inpPath = 'D:\\PhD\\VaR\\Data'
+inpPath = os.path.join(os.path.dirname(__file__), '..', 'data', 'daily_returns.xlsx')
 retTbl = utils.prepare_data(inpPath, returns='pct')
 # Extract SPX returns as a 1D numpy array
 returns = np.array(retTbl[['SPX Index']]).reshape(-1,)
@@ -155,5 +160,5 @@ plt.plot(lambda_array, results[:, 0] + results[:, 1], label='LR_cc', c='black', 
 plt.legend(loc='upper left')
 plt.xlabel('lambda')
 plt.ylabel('Likelihood Ratio')
-plt.savefig('D:\\PhD\\VaR\\Results\\gridsearchlambda.eps', format='eps', dpi=300)
+plt.savefig(os.path.join(RESULTS_DIR, 'gridsearchlambda.eps'), format='eps', dpi=300)
 plt.plot()

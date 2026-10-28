@@ -73,15 +73,15 @@ def make_portfolio(data, asset_type):
     return np.array(temp_array) / n_asset
 
 
-def prepare_data(folder_path, returns='pct'):
+def prepare_data(file_path, returns='pct'):
     """
     Load and preprocess financial data from an Excel file, compute returns, 
     clean missing values, and construct simple portfolios.
 
     Parameters
     ----------
-    folder_path : str
-        Path to the folder containing the Excel file `inpAllFle_updated.xlsx`.
+    file_path : str
+        Path to the Excel file containing the prices (e.g. `data/daily_returns.xlsx`).
     returns : str, optional, default='pct'
         Type of returns to compute from price data:
         - 'pct' : percentage change returns
@@ -97,11 +97,11 @@ def prepare_data(folder_path, returns='pct'):
 
     Notes
     -----
-    - The Excel file `inpAllFle_updated.xlsx` is expected to have dates as the first column 
+    - The Excel file is expected to have dates as the first column 
       and asset names as column headers.
     """
     # Reads the data from an Excel file and imports it as a pandas DataFrame
-    inpTbl = pd.read_excel(folder_path + r'\inpAllFle_updated.xlsx',
+    inpTbl = pd.read_excel(file_path,
                            header=0,
                            index_col=0,
                            na_values='null',

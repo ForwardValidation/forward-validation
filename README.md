@@ -38,13 +38,14 @@
 │ │ ├─ BASEModel.py # parent class for all models
 │ │ ├─ EWMAModel.py # Model classes
 │ │ ├─ GARCHModel.py
-│ │ └─ GJRGARCHModel.py
+│ │ ├─ GJRGARCHModel.py
+│ │ └─ CAViaRModel.py # CAViaR quantile models (standalone, not a BASEModel subclass)
 │ │
 │ ├─ make_data.py # Generation of the synthetic GARCH(1,1) dataset
-│ └─ utils.py # Preprocessing, backtesting, and support functions
+│ ├─ utils.py # Preprocessing, backtesting, and support functions
+│ ├─ main.py # Empirical VaR backtesting script (used in the paper)
+│ └─ main_simulation.py # Monte Carlo simulation of the FV estimator
 │
-├─ main.py # Empirical VaR backtesting script (used in the paper)
-├─ main_simulation.py # Monte Carlo simulation of the FV estimator
 └─ README.md
 
 ```
@@ -57,7 +58,7 @@
 
 ```bash
 
-git clone https://github.com/LucasAurouet/forward-validation.git
+git clone https://github.com/ForwardValidation/forward-validation.git
 
 ```
 
@@ -96,13 +97,15 @@ Each model implements:
 
 - model-specific conditional variance --> `get_variance()`
 
-- optimization support --> `init_params()`, `init_bounds()`, `constraints()` 
+- optimization support --> `init_params()`, `init_bounds()`
+
+- stationarity constraints (e.g. alpha + beta < 1 for the GARCH) --> `constraints()` for the MLE (SLSQP) and `c()` for the FV (`scipy.optimize.LinearConstraint`)
 
 All models inherit from `BASEModel`, which implements:
 
-- Maximum Likelihood Estimation (MLE) --> `fit_mle()`
+- Maximum Likelihood Estimation (MLE) --> `fit_mle()`, optimized with SLSQP
 
-- Forward Validation Estimation (FV) --> `fit_fv()`
+- Forward Validation Estimation (FV) --> `fit_fv()`, which minimizes the conditional coverage statistic LRcc with `scipy.optimize.differential_evolution`
 
 - Value at Risk computation --> `get_valueatrisk()`
 
@@ -140,7 +143,7 @@ python src/make_data.py
 - The output path, dates, asset names and seed are hard-coded at the top of the script
 
 
-`utils.prepare_data(path)` handles:
+`utils.prepare_data(file_path)` handles:
 
 - Loading Excel data
 
@@ -162,17 +165,17 @@ python src/make_data.py
 
 ### Minimal Reproducible Example
 
-This example shows how to run a simple VaR backtest using a small synthetic dataset.  
+This example shows how to run a simple VaR backtest using a small synthetic dataset. It must be run from the `src/` folder.  
 
 ```python
 
 import numpy as np
 
-from src.VolModel.EWMAModel import EWMAModel
+from VolModel.EWMAModel import EWMAModel
 
-from src.Distribution.NormalDistribution import NormalDistribution
+from Distribution.NormalDistribution import NormalDistribution
 
-from src import utils
+import utils
 
 # Generate synthetic returns
 

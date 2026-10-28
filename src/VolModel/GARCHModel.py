@@ -2,6 +2,7 @@ import numpy as np
 from VolModel.BASEModel import BASEModel
 from Distribution.NormalDistribution import NormalDistribution
 from Distribution.StudentsDistribution import StudentsDistribution
+from scipy.optimize import LinearConstraint
 
 class GARCHModel(BASEModel):
     """
@@ -46,7 +47,7 @@ class GARCHModel(BASEModel):
                      + beta * variance[t - 1]
                      + alpha * returns[t - 1] ** 2)
             variance.append(var_t)
-        return np.array(variance)
+        return np.maximum(variance, 1e-8)
     
     def init_params(self):
         """
@@ -93,7 +94,8 @@ class GARCHModel(BASEModel):
     def constraints(self, params):
         """
         Define inequality constraints for the optimization problem.
-        This constraint enforces the EWMA stability condition.
+        This constraint enforces the GARCH stationarity condition
+        alpha + beta < 1.
         This method is designed to be used with optimization routines from
         scipy.optimize, which require constraints
         to be provided as callable functions.
@@ -116,6 +118,27 @@ class GARCHModel(BASEModel):
 
         return 1 - alpha - beta - eps
     
+
+    def c(self):
+        """
+        Define the stationarity constraint used by Forward Validation.
+        This method is designed to be used with
+        scipy.optimize.differential_evolution, which requires constraints
+        to be provided as LinearConstraint objects.
+
+        Returns
+        -------
+        scipy.optimize.LinearConstraint
+            Constraint alpha + beta <= 1 - eps.
+        """
+        dist = self.distribution
+        eps = 1e-6
+        if isinstance(dist, NormalDistribution):
+            return LinearConstraint(A=[0, 1, 1], lb=-np.inf, ub=1 - eps)
+        elif isinstance(dist, StudentsDistribution):
+            return LinearConstraint(A=[0, 1, 1, 0], lb=-np.inf, ub=1 - eps)
+
+
     def config_name(self):
         """
         Return a human-readable name for the model configuration.

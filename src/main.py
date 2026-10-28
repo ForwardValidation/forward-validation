@@ -1,6 +1,7 @@
 from VolModel.GARCHModel import GARCHModel
 from VolModel.EWMAModel import EWMAModel
 from VolModel.GJRGARCHModel import GJRGARCHModel
+from VolModel.CAViaRModel import CAViaRVolModel
 from Distribution.NormalDistribution import NormalDistribution
 from Distribution.StudentsDistribution import StudentsDistribution
 import numpy as np
@@ -8,6 +9,9 @@ import matplotlib.pyplot as plt
 import utils
 import time
 import os
+
+# Folder where the figures are saved
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'results')
 
 def boxplot_test(test_array, y_name, config_name):
     """
@@ -25,7 +29,7 @@ def boxplot_test(test_array, y_name, config_name):
         and the plot title.
     """
 
-    output_dir = f'C:\\Users\\Lucas\\Desktop\\PhD\\VaR\\Results\\{config_name}\\'
+    output_dir = os.path.join(RESULTS_DIR, config_name)
     os.makedirs(output_dir, exist_ok=True)
     title = f'{y_name} {config_name}'
     file_name = f'{title}.eps'
@@ -36,7 +40,7 @@ def boxplot_test(test_array, y_name, config_name):
         plt.title(title)
         plt.xticks(fontsize=15)
         plt.yticks(fontsize=10)
-        plt.savefig(output_dir + file_name, format='eps', dpi=300)
+        plt.savefig(os.path.join(output_dir, file_name), format='eps', dpi=300)
     plt.show()
     
 def backtest(test_array, conf_level):
@@ -71,7 +75,7 @@ def backtest(test_array, conf_level):
 # =============================================================================
 
 # Import data ang generate the return series
-inpPath = '/data/daily_returns.xlsx'
+inpPath = os.path.join(os.path.dirname(__file__), '..', 'data', 'daily_returns.xlsx')
 retTbl = utils.prepare_data(inpPath, returns='pct')
 asset_names = retTbl.columns
 
@@ -79,6 +83,8 @@ asset_names = retTbl.columns
 VaR_level = 0.025
 dist = NormalDistribution()
 model = GJRGARCHModel(dist)
+# CAViaR (specs: 'SAV', 'AS', 'IG', 'AD')
+# model = CAViaRVolModel('SAV', VaR_level)
 config = f'{model.config_name()} {str(VaR_level)}'
 
 # Initialize containers for backtesting results and execution times
