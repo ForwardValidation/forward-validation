@@ -71,7 +71,7 @@ def backtest(test_array, conf_level):
 # =============================================================================
 
 # Import data ang generate the return series
-inpPath = 'C:\Users\Lucas\Desktop\PhD\VaR\Data'
+inpPath = '/data/daily_returns.xlsx'
 retTbl = utils.prepare_data(inpPath, returns='pct')
 asset_names = retTbl.columns
 
