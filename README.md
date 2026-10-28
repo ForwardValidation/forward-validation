@@ -143,7 +143,7 @@ python src/make_data.py
 - The output path, dates, asset names and seed are hard-coded at the top of the script
 
 
-`utils.prepare_data(file_path)` handles:
+`utils.prepare_data(path)` handles:
 
 - Loading Excel data
 
@@ -227,3 +227,14 @@ print(f"5% VaR Kupiec test p-value: {kupiec_p:.4f}")
 - `test_duration(returns, VaR)` – duration-based test
 
 - `test_dq(returns, VaR, v_lag, f_lag, VaR_level)` – Engle & Manganelli dynamic quantile test
+
+**Model comparison**
+
+> The loss functions return one value per observation, so that two VaR models can be compared with the Diebold-Mariano test.
+
+- `lopez_loss(returns, VaR)` – Lopez (1999) magnitude loss, 1 + (r - VaR)² on violations and 0 otherwise
+
+- `pinball_loss(y, q, tau)` – quantile (pinball) loss at level tau
+
+- `dm_test(loss1, loss2, h, hac_lags)` – Diebold-Mariano test of equal predictive accuracy, with a Newey-West HAC variance and the Harvey et al. (1997) small sample correction (two-sided p-value)
+

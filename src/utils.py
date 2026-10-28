@@ -73,14 +73,14 @@ def make_portfolio(data, asset_type):
     return np.array(temp_array) / n_asset
 
 
-def prepare_data(file_path, returns='pct'):
+def prepare_data(path, returns='pct'):
     """
     Load and preprocess financial data from an Excel file, compute returns, 
     clean missing values, and construct simple portfolios.
 
     Parameters
     ----------
-    file_path : str
+    path : str
         Path to the Excel file containing the prices (e.g. `data/daily_returns.xlsx`).
     returns : str, optional, default='pct'
         Type of returns to compute from price data:
@@ -101,7 +101,7 @@ def prepare_data(file_path, returns='pct'):
       and asset names as column headers.
     """
     # Reads the data from an Excel file and imports it as a pandas DataFrame
-    inpTbl = pd.read_excel(file_path,
+    inpTbl = pd.read_excel(path,
                            header=0,
                            index_col=0,
                            na_values='null',
@@ -443,7 +443,7 @@ def test_dq(returns, VaR, v_lag, f_lag, VaR_level):
     Notes
     -----
     - If a numerical issue occurs (e.g., matrix inversion fails), the function
-      returns a small default p-value of 1e-6.
+      returns a small p-value of 1e-6.
 
     References
     ----------
@@ -572,3 +572,120 @@ def train_test_split(returns, train_size):
     test = returns[split_idx:]
 
     return train, test
+
+def lopez_loss(returns, VaR):
+    """
+    Compute the Lopez (1999) loss function for VaR evaluation.
+    
+    Parameters
+    ----------
+    returns : np.ndarray
+        Array of realized returns.
+    VaR : np.ndarray
+        Array of VaR estimates (same length as returns).
+        Convention: VaR should be negative for losses.
+    
+    Returns
+    -------
+    np.ndarray
+        Lopez loss for each observation (0 if no violation). Lower is better.
+    
+    References
+    ----------
+    Lopez, J.A. (1999). Methods for Evaluating Value-at-Risk Estimates.
+    FRBSF Economic Review, 2, 3-17.
+    """
+    returns = np.asarray(returns)
+    VaR = np.asarray(VaR)
+    
+    violations = returns < VaR
+    loss = np.where(violations, 1 + (returns - VaR) ** 2, 0.0)
+    
+    return loss
+
+def pinball_loss(y, q, tau=0.05):
+    """
+    Pinball loss for quantile (VaR) evaluation.
+
+    Parameters
+    ----------
+    y : array-like
+        Realized returns.
+    q : array-like
+        Predicted quantiles (VaR).
+    tau : float
+        Quantile level (e.g. 0.01, 0.05).
+
+    Returns
+    -------
+    np.ndarray
+        Pinball loss for each observation. Lower is better.
+    """
+
+    y = np.asarray(y)
+    q = np.asarray(q)
+
+    u = y - q
+    loss = np.where(u >= 0, tau * u, (tau - 1) * u)
+
+    return loss
+
+def dm_test(loss1, loss2, h=1, hac_lags=None):
+    """
+    Diebold-Mariano test with HAC (Newey-West) variance estimator.
+
+    Parameters
+    ----------
+    loss1, loss2 : array-like
+        Loss series for model 1 and model 2 (e.g. pinball loss, Lopez loss).
+    h : int
+        Forecast horizon.
+    hac_lags : int or None
+        Number of lags for HAC correction. If None, uses floor(4*(T/100)^(2/9)).
+
+    Returns
+    -------
+    p_value : float
+        Two-sided p-value.
+    """
+
+    loss1 = np.asarray(loss1)
+    loss2 = np.asarray(loss2)
+
+    if len(loss1) != len(loss2):
+        raise ValueError("loss1 and loss2 must have same length")
+
+    d = loss1 - loss2
+    T = len(d)
+
+    d_mean = np.mean(d)
+
+    # HAC lag selection (Newey-West rule of thumb)
+    if hac_lags is None:
+        hac_lags = int(np.floor(4 * (T / 100) ** (2 / 9)))
+
+    # HAC variance estimator
+    gamma0 = np.var(d, ddof=1)
+
+    var_hac = gamma0
+
+    for k in range(1, hac_lags + 1):
+        weight = 1 - k / (hac_lags + 1)
+        gamma_k = np.cov(d[k:], d[:-k], ddof=1)[0, 1]
+        var_hac += 2 * weight * gamma_k
+
+    # DM statistic
+    dm_stat = d_mean / np.sqrt(var_hac / T)
+
+    # finite sample adjustment (Harvey et al. correction)
+    adj = np.sqrt((T + 1 - 2 * h + h * (h - 1) / T) / T)
+    dm_stat *= adj
+
+    # p-value (two-sided)
+    p_value = 2 * (1 - scp.stats.norm.cdf(abs(dm_stat)))
+
+    return p_value
+
+def sigmoid(x):
+    """Logistic sigmoid function 1 / (1 + exp(-x))."""
+    return 1 / (1 + np.exp(-x))
