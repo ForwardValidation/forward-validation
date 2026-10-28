@@ -5,6 +5,7 @@ from VolModel.CAViaRModel import CAViaRVolModel
 from Distribution.NormalDistribution import NormalDistribution
 from Distribution.StudentsDistribution import StudentsDistribution
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import utils
 import time
@@ -69,6 +70,34 @@ def backtest(test_array, conf_level):
         results.append(pass_test)
         
     return results
+
+def dm_summary(losses, dm_pvals, conf_level):
+    """
+    Summarize the Diebold-Mariano tests between MLE and FV over all assets.
+
+    Parameters
+    ----------
+    losses : list of list
+        Mean losses for each asset. The first dimension indexes methods
+        (0=MLE, 1=FV).
+    dm_pvals : list of float
+        p-values of the Diebold-Mariano test for each asset.
+    conf_level : float
+        Significance level of the test (e.g., 0.05).
+
+    Returns
+    -------
+    results : list of float
+        Proportion of assets for which the loss of FV is significantly
+        lower than the loss of MLE, and proportion for which it is
+        significantly higher.
+    """
+    mle_loss, fv_loss = np.array(losses[0]), np.array(losses[1])
+    significant = np.array(dm_pvals) < conf_level
+    fv_better = float(round(np.mean(significant & (fv_loss < mle_loss)), 2))
+    mle_better = float(round(np.mean(significant & (fv_loss > mle_loss)), 2))
+
+    return [fv_better, mle_better]
     
 # =============================================================================
 # 
@@ -93,6 +122,10 @@ config = f'{model.config_name()} {str(VaR_level)}'
 #   - index 1 → results for Forward Validation (FV)
 kupiec, indep, duration, dq = [[], []], [[], []], [[], []], [[], []]
 extime_mle, extime_fv = [], []
+# Mean Lopez and pinball losses (same indexing as above) and p-values of
+# the Diebold-Mariano tests between MLE and FV for each loss
+lopez, pinball = [[], []], [[], []]
+dm_lopez, dm_pinball = [], []
 
 for asset in asset_names:
     print(asset)
@@ -123,6 +156,17 @@ for asset in asset_names:
         duration[j].append(utils.test_duration(test, VaRs[j]))
         dq[j].append(utils.test_dq(test, VaRs[j], 4, 1, VaR_level))
 
+    # Loss functions for each VaR
+    lopez_losses = [utils.lopez_loss(test, VaRs[j]) for j in [0, 1]]
+    pinball_losses = [utils.pinball_loss(test, VaRs[j], VaR_level) for j in [0, 1]]
+    for j in [0, 1]:
+        lopez[j].append(np.mean(lopez_losses[j]))
+        pinball[j].append(np.mean(pinball_losses[j]))
+
+    # Diebold-Mariano tests between MLE and FV for each loss
+    dm_lopez.append(utils.dm_test(lopez_losses[0], lopez_losses[1]))
+    dm_pinball.append(utils.dm_test(pinball_losses[0], pinball_losses[1]))
+
 # boxplots for the p-values of the CC test
 boxplot_test(indep, 'Conditional Coverage Test', config)
 
@@ -137,5 +181,25 @@ print('DQ')
 print('0.05', backtest(dq, 0.05))
 print('Ex Time')
 print(f'{np.mean(extime_mle):.3f}', f'{np.mean(extime_fv):.3f}')
+
+# Losses and Diebold-Mariano tests for each asset
+loss_table = pd.DataFrame({'Lopez MLE': lopez[0],
+                           'Lopez FV': lopez[1],
+                           'DM Lopez p-value': dm_lopez,
+                           'Pinball MLE': pinball[0],
+                           'Pinball FV': pinball[1],
+                           'DM Pinball p-value': dm_pinball},
+                          index=asset_names)
+print(loss_table.round(4).to_string())
+loss_table.to_csv(os.path.join(RESULTS_DIR, config, f'Losses {config}.csv'))
+
+# Average losses and proportion of assets where each method is significantly
+# better according to the DM test: [FV better, MLE better]
+print('Lopez')
+print('mean', [float(round(np.mean(lopez[j]), 4)) for j in [0, 1]])
+print('DM 0.05', dm_summary(lopez, dm_lopez, 0.05))
+print('Pinball')
+print('mean', [float(round(np.mean(pinball[j]), 4)) for j in [0, 1]])
+print('DM 0.05', dm_summary(pinball, dm_pinball, 0.05))
 
 
